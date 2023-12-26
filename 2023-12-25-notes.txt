@@ -1,0 +1,61 @@
+
+issues
+  - low-quality video output
+
+feature requests
+  - process all files given on the command line
+  - default mode: pad and resample individual file transforms
+  - force transcoded video file to specific resolution (otherwise the first frame sets the resolution)
+  - configure framerate and bitrate of output file (otherwise maybe default to 30fps and 5mbs)
+  - configurable tmp directory
+  - configurable output directory
+  - mode: pair audio and video files in output
+  - mode: configurable canvas size and multi-track layout geometry
+
+note:
+  - one
+----
+
+count number of frames
+
+```
+ffprobe -i video.mpg -show_frames -show_entries frame=best_effort_timestamp_time -of csv=p=0 -v quiet | wc -l
+```
+
+----
+
+resizing gives us a better video quality if the first frame is not 1280x720 (duh)
+
+```
+ffmpeg -y -i nina-5fea61e5-cam-video.webm -vf scale=1280:720 -r 30 -b:v 5000k video.mpg
+```
+
+----
+
+concat
+
+It would be good to use the concat protocol, which works at the file level. This
+allows copying of all video frames without re-encoding. So a possible approach.
+
+1. generate an mp4 for the padding, in a .ts container
+2. transcode the rtp video webm to mp4, in a .ts container
+3. concat the two files into an mp4 container
+
+```
+# 1
+ffmpeg -y -f lavfi -i "color=c=black:s=1280x720" -t 10 -r 30 -b:v 5000k -c:v libx264 tmp-padding.ts
+# 2 
+ffmpeg -y -i nina-5fea61e5-cam-video.webm -r 30 -vf scale=1280:720 -b:v 5000k -c:v libx264 tmp-video.ts
+
+
+# 
+ffmpeg -i "concat:tmp-padding.ts|tmp-video.ts" -c copy output.mp4
+ ```
+
+
+From the ffmpeg docs
+```
+ffmpeg -i input1.mp4 -c copy intermediate1.ts
+ffmpeg -i input2.mp4 -c copy intermediate2.ts
+ffmpeg -i "concat:intermediate1.ts|intermediate2.ts" -c copy output.mp4
+```
