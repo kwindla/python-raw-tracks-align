@@ -1,6 +1,17 @@
 
-issues
-  - low-quality video output
+
+[x] accept multiple filename args
+[x] sanity check filenames and base times
+[x] merge matching audio and video files in output
+[x] more quiet ffmpeg
+[x] configure tmp directory
+[x] configure output directory
+[x] create unique tmp filenames
+[x] configure framerate, bitrate, resolution
+[ ] --requirements arg to aid in setup
+
+
+----
 
 feature requests
   - process all files given on the command line
@@ -12,8 +23,11 @@ feature requests
   - mode: pair audio and video files in output
   - mode: configurable canvas size and multi-track layout geometry
 
-note:
-  - one
+
+
+1703174279145-02ce3bcb-bf5b-423f-9699-63fca113a952-cam-audio-1703174279270.webm
+
+
 ----
 
 count number of frames
