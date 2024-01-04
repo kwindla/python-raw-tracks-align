@@ -5,6 +5,7 @@ import re
 import sys
 import math
 import ffmpegio
+import os
 
 
 def main():
@@ -73,15 +74,17 @@ def main():
             first_frame_height = metadata['streams'][0]['height']
             aspect_ratio = first_frame_width / first_frame_height
 
+        base_name = os.path.basename(input_filename)
+
         # transcode and pad
         if codec_type == 'audio':
-            output_file_name = f"{args.output_dir}/{input_filename}.padded.aac"
+            output_file_name = f"{args.output_dir}/{base_name}.padded.aac"
             filename_map[input_filename] = output_file_name
             transcode_and_pad_audio(
                 input_filename, output_file_name, start_time,
                 args.ffmpeg_global_args)
         elif codec_type == 'video':
-            output_file_name = f"{args.output_dir}/{input_filename}.padded.mp4"
+            output_file_name = f"{args.output_dir}/{base_name}.padded.mp4"
             filename_map[input_filename] = output_file_name
             transcode_and_pad_video(
                 input_filename, output_file_name, start_time,
