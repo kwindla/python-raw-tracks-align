@@ -29,8 +29,8 @@ def main():
                         action='store', help='output video framerate - default is 30')
     parser.add_argument('--video_bitrate', default='5000k',
                         action='store', help='output video target bitrate - default is 5000k which is 5mb/s')
-    parser.add_argument('--video_resolution', default='1280x720',
-                        action='store', help='output video resolution as WxH - default is 1280x720')
+    parser.add_argument('--video_min_resolution_dimension', type=int, default=0,
+                        action='store', help='force output resolution to be at least this big on the shortest side (eg 720) - default is to use the first frame\'s resolution as the output resolution, but this can result in smaller than a smaller than expected resolution')
 
     parser.add_argument('--allow-any-filename-format', default=False,
                         action='store_true',
@@ -68,6 +68,10 @@ def main():
         # print(f"{metadata}", file=sys.stderr)
         start_time = metadata['streams'][0]['start_time']
         codec_type = metadata['streams'][0]['codec_type']
+        if (codec_type == 'video'):
+            first_frame_width = metadata['streams'][0]['width']
+            first_frame_height = metadata['streams'][0]['height']
+            aspect_ratio = first_frame_width / first_frame_height
 
         # transcode and pad
         if codec_type == 'audio':
@@ -83,7 +87,8 @@ def main():
                 input_filename, output_file_name, start_time,
                 args.tmp_dir, args.ffmpeg_global_args,
                 args.video_framerate, args.video_bitrate,
-                args.video_resolution)
+                args.video_min_resolution_dimension,
+                first_frame_width, first_frame_height, aspect_ratio)
 
     #
     # if --combine-matching-video-and-audio is set, combine any matching
@@ -133,7 +138,7 @@ def parse_raw_tracks_filename(filename):
     # example raw-track filename: 1703174279145-02ce3bcb-bf5b-423f-9699-63fca113a952-cam-audio-1703174279270.webm
     # this is:
     #  <startRecording timestamp in ms>-<36 character uuid>-<track name>-<approx track start time>.<extension>
-    pattern = r'(\d+)-(.{36})-(.*)-\d+\.(\w+)'
+    pattern = r'^(?:.+/)*(\d+)-(.{36})-(.*)-\d+\.(\w+)'
     match = re.match(pattern, filename)
     if (match is None):
         print(
@@ -158,7 +163,9 @@ def transcode_and_pad_audio(input_file_name, output_file_name, start_time, ffmpe
 
 
 def transcode_and_pad_video(input_file_name, output_file_name, start_time, tmp_dir,
-                            ffmpeg_global_args, video_framerate, video_bitrate, video_resolution):
+                            ffmpeg_global_args, video_framerate, video_bitrate,
+                            video_min_resolution_dimension,
+                            first_frame_width, first_frame_height, aspect_ratio):
     # we need to pad the beginning of the video file. the most robust way to
     # do this is to generate a file of padding, then concatenate the padding
     # video and our output video. ffmpeg has several options for concatenation.
@@ -173,9 +180,24 @@ def transcode_and_pad_video(input_file_name, output_file_name, start_time, tmp_d
     # todo: make our tmp file names unique so actions/script can be run in parallel
     # todo: sanity check to see that output_file_name ends in '.mp4'
 
-    # get width and height from video_resolution because the color filter and scale
-    # use different formats
-    width, height = map(int, video_resolution.split('x'))
+    # use the first frame's resolution for the padding video and the transcoding, unless
+    # the user has specified a minimum resolution dimension. (it's a good idea to
+    # specify a minimum resolution dimension, because the first frame's resolution might
+    # be smaller than expected, for example the first frame might be from a small
+    # simulcast layer)
+    if (video_min_resolution_dimension == 0):
+        width = first_frame_width
+        height = first_frame_height
+    else:
+        print(
+            f'{first_frame_width}x{first_frame_height} -- {aspect_ratio}', file=sys.stderr)
+        if (aspect_ratio > 1):
+            height = video_min_resolution_dimension
+            width = math.floor(height * aspect_ratio)
+        else:
+            width = video_min_resolution_dimension
+            height = math.floor(width * aspect_ratio)
+
     padding_tmp_filename = f'{tmp_dir}/padding.ts'
     video_tmp_filename = f'{tmp_dir}/video.ts'
 
